@@ -16,6 +16,7 @@ export default class Grid extends Layout {
   static get defaults () {
     return {
       offset: { x: 0, y: 0 },
+      cellOffset: { x: 0, y: 0 },
     }
   }
 
@@ -28,11 +29,10 @@ export default class Grid extends Layout {
     this.rows = this.p.rows || 0
     this.width = this.p.width || 0
     this.height = this.p.height || 0
-    const type = this._getType()
     let columns
     let rows
 
-    switch (type) {
+    switch (this.p.name) {
     case ('Grid'):
       if (this.width) {
         columns = this._calculateColumns()
@@ -92,7 +92,7 @@ export default class Grid extends Layout {
       })
     } else {
       _.each(this.nodes, (node, index) => {
-        if (j === count) {
+        if (j === count && count !== 0) {
           j = 0
           i++
         }
@@ -118,19 +118,5 @@ export default class Grid extends Layout {
 
   _calculateRows () {
     return Math.floor((this.p.height - this.p.offset.y) / this.p.cell.height)
-  }
-
-  _getType () {
-    let type
-    if (this.width || this.height) {
-      type = 'Grid'
-    } else if (this.columns === 1 || this.rows === 1) {
-      type = 'List'
-    } else if (this.columns > 1 || this.rows > 1) {
-      type = 'Table'
-    } else {
-      type = 'Default'
-    }
-    return type
   }
 }

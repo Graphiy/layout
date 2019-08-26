@@ -1,3 +1,5 @@
 demo/
+coverage/
 test/
 webpack.config.babel.js
+.travis.yml

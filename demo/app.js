@@ -8,6 +8,7 @@ import Force from '../src/force'
 import Radial from '../src/radial'
 
 import rawData from './data.csv'
+import Setting from './setting/setting'
 
 import './template/node.scss'
 import './template/row.scss'
@@ -24,9 +25,7 @@ class App {
     this.fullData = d3Csv.csvParse(rawData)
     this.data = _.slice(this.fullData, 0, 63)
     this.templates = ['row', 'tile', 'circle']
-
     const Layouts = [Grid, Radial, Force]
-
     this.layouts = _.map(Layouts, (Layout) => {
       const instance = new Layout()
       let links
@@ -41,10 +40,12 @@ class App {
     this.initSlider()
     this.containerWidth = this.container.node().getBoundingClientRect().width
     this.containerHeight = document.documentElement.clientHeight - this.container.node().offsetTop
+    this.setting = new Setting({ width: this.containerWidth, height: this.containerHeight })
 
     this.changeTemplate('circle')
-    this.changeLayout(layoutSets.force)
+    this.changeLayout(layoutSets.table)
 
+    this.setting.on('change', this.changeConfig.bind(this))
     $(window).on('resize', this._onResize.bind(this))
   }
 
@@ -130,9 +131,9 @@ class App {
     d3Selection.selectAll('.layout button').classed('active', false)
     d3Selection.select(`.${d.name}`).classed('active', true)
 
-    let layoutSet = _.extend({}, d.config)
+    let layoutSet = _.extend({}, d.config, { name: d.name })
 
-    this._renderSettingControls(d)
+    this.setting.updateControllers(d.config)
 
     // use previous coordinates to start Force layout for more predictable nodes position
     if (this.layout.name === 'Force') {
@@ -186,50 +187,6 @@ class App {
         $(node).css({ transform: `translate(${coord.x}px, ${coord.y}px)` })
       })
     }
-  }
-
-  _renderSettingControls (settings) {
-    if (d3Selection.select('#config').nodes().length) {
-      d3Selection.select('#config').remove()
-    }
-
-    const container = d3Selection.select('.switcher')
-      .append('div')
-      .attr('id', 'config')
-      .append('h5')
-      .html(settings.name)
-    if (settings.name === 'Grid') {
-      container.append('p').html('width option priority by height')
-    }
-    if (settings.name === 'Table') {
-      container.append('p').html('columns option priority rows')
-    }
-
-    const config = settings.config
-    container.on('input', this.changeConfig.bind(this))
-
-    _.each(config, (value, key) => {
-      if (_.isObject(value)) {
-        this.controlContainer = container.append('div')
-        this._renderLabelControl(key)
-        const pControlContainer = this.controlContainer
-        _.each(value, (subValue, subKey) => {
-          this.controlContainer = pControlContainer.append('div')
-          this._renderLabelControl(subKey)
-          this._renderSettingControl(`${key}.${subKey}`, subValue)
-        })
-      } else {
-        if (this.layout.name === 'Grid') {
-          if ((!config.width || !config.height) && (config.columns === 1 || config.rows === 1)) {
-            if (key === 'columns' || key === 'rows') return
-          }
-        }
-
-        this.controlContainer = container.append('div')
-        this._renderLabelControl(key)
-        this._renderSettingControl(key, value, config)
-      }
-    })
   }
 
   nodeInitPosition (coords) {
@@ -353,76 +310,11 @@ class App {
     return coords
   }
 
-  changeConfig () {
-    const key = event.target.dataset.key.split('.') // eslint-disable-line
-    let value = +event.target.value // eslint-disable-line
-
-    switch (key[0]) {
-    case 'startRadian':
+  changeConfig (property, path, value) {
+    if (property === 'startRadian') {
       value *= (Math.PI / 180)
-      break
-    default:
     }
-
-    if (key[1]) {
-      this.layout.p[key[0]][key[1]] = value
-    } else {
-      this.layout.p[key[0]] = value
-    }
-  }
-
-  _renderSettingControl (key, value, config = {}) {
-    const type = App._getControlType(key)
-    const input = this.controlContainer.append('input')
-      .attr('type', type)
-      .attr('data-key', key)
-      .attr('value', value)
-      .attr('step', 1)
-      .attr('min', 0)
-
-    switch (key) {
-    case 'startRadian':
-      input.attr('max', 360)
-      break
-    case 'center.x':
-      input.attr('max', this.containerWidth)
-      break
-    case 'center.y':
-      input.attr('max', this.containerHeight)
-      break
-    case 'columns':
-    case 'rows':
-      if ((!config.width || !config.height) && (config.columns > 1 || config.rows > 1)) {
-        input.attr('min', 2)
-      }
-      break
-    default:
-    }
-  }
-
-  static _getControlType (key) {
-    switch (key) {
-    case 'startRadian':
-    case 'center.x':
-    case 'center.y':
-      return 'range'
-    default:
-      return 'number'
-    }
-  }
-
-  _renderLabelControl (key) {
-    let label
-    switch (key) {
-    case 'startRadian':
-      label = 'start degree'
-      break
-    default:
-      label = key
-    }
-
-    this.controlContainer.append('label')
-      .html(label)
+    _.set(this.layout.p, `${path}${property}`, value)
   }
 
   _onResize () {
